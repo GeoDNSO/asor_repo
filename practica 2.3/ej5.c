@@ -17,8 +17,17 @@
 #include <fcntl.h>
 
 #include <sched.h>
+#include <sys/resource.h>
+
 
 //Info sobre ps https://kb.iu.edu/d/afnv
+
+/*
+struct rlimit {
+               rlim_t rlim_cur;  /* Soft limit 
+               rlim_t rlim_max;  /* Hard limit (ceiling for rlim_cur) 
+           };
+*/
 
 int main(int argc, char *argv[]){
 
@@ -44,6 +53,15 @@ int main(int argc, char *argv[]){
    free(wd);
    printf("PID: %ld | PPID: %ld  | PGID: %ld  | SID: %ld\n", pid, ppid, pgid, sid);
 
+
+    struct rlimit rlim;
+    int ok = getrlimit(RLIMIT_NOFILE, &rlim);
+
+    if(ok == -1){
+        perror("Error");
+        return -1;
+    }
+    printf("Número Máximo de Ficheros que puede Abrir el Proceso Actual: %ld\n", rlim.rlim_cur);
 
     return 0;
 }
