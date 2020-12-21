@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-    sleep(seconds);
+    sleep(seconds); //al recibir la señal, no se ignora
     
     if(delete){
         printf("Han pasado %is\n", seconds);
