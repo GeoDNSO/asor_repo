@@ -57,6 +57,7 @@ int main(int argc, char *argv[]){
                 
                 printf("El caracter enviado por el padre fue %c\n", c);
                 c = (count == 10) ? 'q' : 'l';
+				sleep(1);
                 if(write(h_p_fd[1], &c, 1) == -1){
                     perror("Son Writing Father Error");
                     return -1;
