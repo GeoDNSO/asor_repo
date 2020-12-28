@@ -40,6 +40,7 @@ int main(int argc, char *argv[]){
         perror("Write Error");
         return -1;
     }
+	close(fd);
 
     return 0;
 }
