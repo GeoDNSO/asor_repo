@@ -20,6 +20,7 @@
 #define BUFF_SIZE 256
 #define TIMEOUT_SECONDS 5
 
+
 int main(int argc, char *argv[]){
 
     int fd[2] = {-1, -1};
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]){
     struct timeval timeout;
 
     int changes = -1;
-
+    printf("To finish use: Ctrl + C\n");
     do{
         int currentPipe = 0;
 
@@ -117,7 +118,7 @@ int main(int argc, char *argv[]){
             }
         }
 
-    }while(changes < 1);
+    }while(1);
 
     close(fd[0]);
     close(fd[1]);
