@@ -39,8 +39,6 @@ int main(int argc, char *argv[]){
     hints.ai_addr = NULL;
     hints.ai_next = NULL;
 
-    
-
     int s = getaddrinfo(argv[1], NULL , &hints, &result); //result = posibles hosts...
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
@@ -58,8 +56,9 @@ int main(int argc, char *argv[]){
     printf("Posibles direcciones para crear un socket asociado a: %s\n", argv[1]);
     printf("--------------------------------------------\n");
     struct addrinfo *rp;
+
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-        printf("Familia: %i \n", rp->ai_family); //???
+        printf("Familia: %i \n", rp->ai_family);
         printf("Tipo de Socket: %i \n", rp->ai_socktype);
         printf("Protocolo: %i \n", rp->ai_protocol);
 
@@ -76,7 +75,7 @@ int main(int argc, char *argv[]){
         printf("--------------------------------------------\n");
     }
 
-    freeaddrinfo(result);           /* No longer needed */
+    freeaddrinfo(result); /* No longer needed */
 
     return 0;
 }
