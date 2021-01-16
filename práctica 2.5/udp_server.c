@@ -105,7 +105,7 @@ int processCommand(char* message, char** messageToSend){
     if(message == NULL)
         return -1;
     
-    if(strlen(message) == 2){ //char + "\0"
+    if(strlen(message) == 2 || strlen(message) == 1){ //char + "\0"
         char a = message[0];
         switch(a){
             case 't':
