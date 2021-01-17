@@ -35,6 +35,7 @@ char *actTime(char *str);
 int createSocket(char *host, char *port);
 int processCommand(char* message, char **messageToSend);
 int processRequest(int fd);
+int runCommand(int code, char* messageToSend);
 
 int main(int argc, char *argv[]){
 
@@ -119,8 +120,11 @@ int processRequest(int fd){
     //Enviar respuesta al cliente
     char *messageToSend = "";
     int code = processCommand(buf, &messageToSend);
-    int result = runCommand(code); //Lee el comando recibido y lo ejecuta. Ej: devolver FINISH para terminar, // o imprimir mensajes de informacion extra
+    int result = runCommand(code, messageToSend); //Lee el comando recibido y lo ejecuta. Ej: devolver FINISH para terminar, // o imprimir mensajes de informacion extra
     
+    if(result == FINISH) //enviamos la señal de FINISH
+        return result;
+
     //Enviar mensaje por terminal
     if(fd == STDOUT_FILENO){
         printf("%s\n", messageToSend);
@@ -143,7 +147,7 @@ int processRequest(int fd){
     return result;
 }
 
-int runCommand(int code){
+int runCommand(int code, char *messageToSend){
     if(code == FINISH){
         printf("Exit recieved...\n");
         return FINISH;
