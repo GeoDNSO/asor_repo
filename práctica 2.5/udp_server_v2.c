@@ -21,8 +21,9 @@
 
 #define BUF_SIZE 512
 
-
 #define TIMEOUT_SECONDS 100
+
+#define SERVER_ORIGIN 10
 
 #define ERROR -1
 #define CURRENT_TIME_HOUR 1
@@ -30,9 +31,10 @@
 #define FINISH 3
 #define OTHER_MESSAGE 4
 
+char *actTime(char *str);
 int createSocket(char *host, char *port);
 int processCommand(char* message, char **messageToSend);
-char *actTime(char *str);
+int processRequest(int fd);
 
 int main(int argc, char *argv[]){
 
@@ -43,14 +45,11 @@ int main(int argc, char *argv[]){
 
     int sfd = createSocket(argv[1], argv[2]);//Socket File Descriptor
 
-
     //Parte Multiplexacion
     fd_set rfds;//Set de lectura
     struct timeval timeout; 
     int changes = -1;
 
-
-    //Denrto bucle
     do{
         timeout.tv_sec = TIMEOUT_SECONDS;
         timeout.tv_usec = 0;
@@ -58,8 +57,7 @@ int main(int argc, char *argv[]){
         FD_SET(sfd, &rfds);
         FD_SET(STDOUT_FILENO, &rfds);
 
-        //max fd + 1 para el select
-        int nfds = (sfd < STDOUT_FILENO) ? STDOUT_FILENO : sfd;
+        int nfds = (sfd < STDOUT_FILENO) ? STDOUT_FILENO : sfd; //max fd + 1 para el select
         ++nfds;//+1 para select
 
         //No usamos los sets de escritura o excepciones
@@ -70,113 +68,94 @@ int main(int argc, char *argv[]){
             return -1;
         }
         else if(changes == 0){
-            printf("select(2): %is has passed\n", TIMEOUT_SECONDS);
+            printf("server select(2): %is has passed\n", TIMEOUT_SECONDS);
         }
         else{
-
             if(FD_ISSET(sfd, &rfds)){
-                serverCode(sfd);
+                changes = processRequest(sfd);
             }
             else if(FD_ISSET(STDOUT_FILENO, &rfds)){
-                char buffer[BUF_SIZE];
-                int bytesRead = read(STDOUT_FILENO, buffer, 256);
-                if (buffer[bytesRead-1] == '\n')
-                    buffer[bytesRead-1] = '\0';
-                else
-                    buffer[bytesRead] = '\0';
-
-                if(bytesRead == -1){
-                    perror("Read error");
-                    return -1;
-                }
-                else{
-                    //AQUI BUFFEr ES IGUAL A BUFF...
-                    printf("Recieved: %s\n", buffer);
-                    
-                    char *messageToSend = "";
-                    int code = processCommand(buffer, &messageToSend);
-                    if(code == FINISH){
-                        printf("Exit recieved...\n");
-                        //break;
-                        return 0;
-                    }
-                    //Comentar if para enviar errores al cliente
-                    if(code == OTHER_MESSAGE){
-                        printf("This won't be sent: %s\n", messageToSend);
-                        messageToSend[0] = '\r';
-                        messageToSend[1] = '\0';
-                    }
-
-                    size_t messageToSendLen = strlen(messageToSend);
-                    printf("%s", messageToSend);
-                    free(messageToSend);
-                    memset(buffer,'\0',BUF_SIZE);//Si no reseteamos el array, el tamaño del buffer se lee incorrectamente
-                    printf("----------\n");
-                }
+                changes = processRequest(STDOUT_FILENO);
             }            
         }
-
-    }while(1);
-
-
-    /* Read datagrams and echo them back to sender */
-
-    for (;;) {
-        
-            
-    }
+    }while(changes != FINISH);
 
     return 0;
 }
 
-int serverCode(int sfd){
-    struct sockaddr_storage peer_addr;
+int processRequest(int fd){
     char buf[BUF_SIZE];
+
+    struct sockaddr_storage peer_addr;
     socklen_t peer_addr_len = sizeof(struct sockaddr_storage);
-    ssize_t nread = recvfrom(sfd, buf, BUF_SIZE, 0, (struct sockaddr *) &peer_addr, &peer_addr_len);
-    if (nread == -1){
-        //continue;   /* Ignore failed request */
-        return 0;
+
+    int s = SERVER_ORIGIN; //Usado para recoger el resultado de getnameinfo, si se envia por STDOUT conserva su valor inicial
+    char host[NI_MAXHOST], service[NI_MAXSERV]; //Buffers para guardar el nombre del host y el servicio
+    ssize_t nread = -1;
+    if(fd == STDOUT_FILENO){ //Leer de terminal
+        nread = read(STDOUT_FILENO, buf, BUF_SIZE);
     }
-    char host[NI_MAXHOST], service[NI_MAXSERV];
-    int s = getnameinfo((struct sockaddr *) &peer_addr, peer_addr_len, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
+    else{ //Leer mensaje recibido en la red
+        nread = recvfrom(fd, buf, BUF_SIZE, 0, (struct sockaddr *) &peer_addr, &peer_addr_len);
+        s = getnameinfo((struct sockaddr *) &peer_addr, peer_addr_len, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
+    }
+
+    if (nread == -1)
+        return 0; //continue;   /* Ignore failed request */
+
+    if(buf[nread-1] == '\n') //Evitar dobles saltos de linea al imprimir/Para recibir con saltos de lineas --> eliminar este if
+        buf[nread-1] = '\0';
+
     if (s == 0){
         printf("Received %ld bytes from %s:%s\n", (long) nread, host, service);
-        //Para evitar un doble salto de linea, si tocamos directamente buf, la aplicacion falla
-        if(buf[nread-1] == '\n'){
-            printf("Received message: %s", buf);
-        }else{
-            printf("Received message: %s\n", buf);
-        }
-        
+        printf("Received message: %s\n", buf); 
+    }
+    else if(s == SERVER_ORIGIN){
+        printf("Server message recieved: %s\n", buf);
     }
     else
         fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
+    
     //Enviar respuesta al cliente
     char *messageToSend = "";
     int code = processCommand(buf, &messageToSend);
-    if(code == FINISH){
-        printf("Exit recieved...\n");
-        //break;
+    int result = runCommand(code); //Lee el comando recibido y lo ejecuta. Ej: devolver FINISH para terminar, // o imprimir mensajes de informacion extra
+    
+    //Enviar mensaje por terminal
+    if(fd == STDOUT_FILENO){
+        printf("%s\n", messageToSend);
+        free(messageToSend);
         return 0;
     }
-    //Comentar if para enviar errores al cliente
-    if(code == OTHER_MESSAGE){
-        printf("This won't be sent: %s\n", messageToSend);
-        messageToSend[0] = '\r';
-        messageToSend[1] = '\0';
-    }
-        
+
+    //Enviar mensaje al cliente
     size_t messageToSendLen = strlen(messageToSend);
-    if (sendto(sfd, messageToSend, messageToSendLen, 0, 
+    if (sendto(fd, messageToSend, messageToSendLen, 0, 
                 (struct sockaddr *) &peer_addr, peer_addr_len) != messageToSendLen){
         free(messageToSend);
         fprintf(stderr, "Error sending response\n");
     }
+
     free(messageToSend);
     memset(buf,'\0',BUF_SIZE);//Si no reseteamos el array, el tamaño del buffer se lee incorrectamente
+
     printf("----------\n");
+    return result;
 }
+
+int runCommand(int code){
+    if(code == FINISH){
+        printf("Exit recieved...\n");
+        return FINISH;
+    }
+    else if(code == OTHER_MESSAGE){
+        printf("This won't be sent: %s\n", messageToSend);
+        messageToSend[0] = '\r';
+        messageToSend[1] = '\0';
+    }
+    return 0;
+}
+
 
 int processCommand(char* message, char** messageToSend){
     if(message == NULL)
@@ -206,7 +185,6 @@ int processCommand(char* message, char** messageToSend){
 }
 
 int createSocket(char *host, char *port){
-
     struct addrinfo hints;
     struct addrinfo *result;
 
@@ -244,11 +222,10 @@ int createSocket(char *host, char *port){
         exit(EXIT_FAILURE);
     }
     freeaddrinfo(result); /* No longer needed */
-
     return sfd;
 }
 
-//str is a formated string like "%H:%M:%S\n"
+//str is a formated string like str = "%H:%M:%S\n"
 char *actTime(char *str){
     char outstr[200];
     time_t t;
@@ -260,8 +237,6 @@ char *actTime(char *str){
         perror("localtime");
         exit(EXIT_FAILURE);
     }
-
-    //char *str = "%H:%M:%S\n";
     if (strftime(outstr, sizeof(outstr), str, tmp) == 0) {
         fprintf(stderr, "strftime returned 0");
         exit(EXIT_FAILURE);
