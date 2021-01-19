@@ -20,7 +20,6 @@
 #include <netdb.h>
 
 #define BUF_SIZE 512
-
 #define MAX_BACKLOG 5 //Numero maximo de conexiones en la cola
 
 int createSocket(char *host, char *port);
@@ -86,7 +85,6 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-
 int child(int clisd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len, int pid){
     char host[NI_MAXHOST], service[NI_MAXSERV];
 
@@ -127,7 +125,6 @@ int child(int clisd, struct sockaddr_storage peer_addr, socklen_t peer_addr_len,
 }
 
 int createSocket(char *host, char *port){
-
     struct addrinfo hints;
     struct addrinfo *result;
 

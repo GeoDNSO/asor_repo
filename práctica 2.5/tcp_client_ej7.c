@@ -22,8 +22,6 @@
 #define BUF_SIZE 512
 
 int createSocket(char *host, char *port);
-int processCommand(char* message, char **messageToSend);
-char *actTime(char *str);
 
 int main(int argc, char *argv[]){
 
@@ -36,12 +34,15 @@ int main(int argc, char *argv[]){
 
     while(1){
         char buf[BUF_SIZE];
+
         //Leer de terminal
         read(STDIN_FILENO, buf, BUF_SIZE);
         size_t messageToSendLen = strlen(buf);
         if (send(sfd, buf, messageToSendLen, 0) != messageToSendLen){
             fprintf(stderr, "Error sending response\n");
         }
+
+        //Fin
         if(!strcmp(buf, "Q\n")){
             break;
         }

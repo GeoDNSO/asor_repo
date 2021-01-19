@@ -48,19 +48,10 @@ int main(int argc, char *argv[]){
 
     int sfd = createSocket(argv[1], argv[2]);//Socket File Descriptor
 
-    pid_t pid;
-
-    int i = 0; 
-    for(;i < MAX_CHILDS; ++i){
-        pid = fork();
-
-        //Los hijos no generan más procesos...
-        if(pid == -1 || pid == 0){
-            break;
-        }
-    }
-
-    switch(pid){
+    int i = 0;
+    for(; i < MAX_CHILDS; ++i){
+        pid_t pid = fork();
+        switch(pid){
         case -1:
             perror("fork");
             exit(1);
@@ -70,9 +61,12 @@ int main(int argc, char *argv[]){
             printf("Child %i recieved a FINISH signal...\n");
             break;
         default: //Padre
-            printf("Father %i\n", getpid());
-            printf("Father: waiting all child for finishing\n");
-            wait(NULL);
+            if(i == (MAX_CHILDS-1)){
+                printf("Father %i\n", getpid());
+                printf("Father: waiting all child for finishing...\n");
+                wait(NULL);
+            }
+        }
     }
 
     return 0;

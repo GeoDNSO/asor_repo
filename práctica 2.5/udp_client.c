@@ -30,52 +30,44 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    //Se podrian devolver el valor de rp obtenido en la funcion para la funcion sendto(...)
     int sfd = createSocket(argv[1], argv[2]);//Socket File Descriptor
 
-    /* Read datagrams and echo them back to sender */
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(atoi(argv[2]));
+    inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
 
-    for (;;) {
-        
-        struct sockaddr_in servaddr;
-
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(atoi(argv[2]));
-
-        inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
-        //servaddr.sin_addr.s_addr = argv[1];
-
-        size_t messageToSendLen = strlen(argv[3]);
-        if (sendto(sfd, argv[3], messageToSendLen, 0, 
-                    (struct sockaddr *) &servaddr, sizeof(servaddr)) != messageToSendLen){
-
-            fprintf(stderr, "Error sending response\n");
-        }
-
-        struct sockaddr_storage peer_addr;
-        socklen_t peer_addr_len = sizeof(struct sockaddr_storage);
-        char buf[BUF_SIZE];
-        ssize_t nread = recvfrom(sfd, buf, BUF_SIZE, 0, (struct sockaddr *) &peer_addr, &peer_addr_len);
-        if (nread == -1)
-            continue;   /* Ignore failed request */
-
-        char host[NI_MAXHOST], service[NI_MAXSERV];
-        int s = getnameinfo((struct sockaddr *) &peer_addr, peer_addr_len, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
-        if (s == 0){
-            printf("Received %ld bytes from %s:%s\n", (long) nread, host, service);
-
-            //Para evitar un doble salto de linea, si tocamos directamente buf, la aplicacion falla
-            if(buf[nread-1] == '\n'){
-                printf("Received message: %s", buf);
-            }else{
-                printf("Received message: %s\n", buf);
-            }
-            
-        }
-        else
-            fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
-        break; //Solo una vez
+    //Enviar texto recibido por parametro
+    size_t messageToSendLen = strlen(argv[3]);
+    if (sendto(sfd, argv[3], messageToSendLen, 0, 
+                (struct sockaddr *) &servaddr, sizeof(servaddr)) != messageToSendLen){
+        fprintf(stderr, "Error sending response\n");
     }
+
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len = sizeof(struct sockaddr_storage);
+    char buf[BUF_SIZE];
+    buf[0] = '\0';
+    ssize_t nread = recvfrom(sfd, buf, BUF_SIZE, 0, (struct sockaddr *) &peer_addr, &peer_addr_len);
+    if (nread == -1)
+        return 0;   /* Ignore failed request */
+
+    char host[NI_MAXHOST], service[NI_MAXSERV];
+    int s = getnameinfo((struct sockaddr *) &peer_addr, peer_addr_len, host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
+    if (s == 0){
+        printf("Received %ld bytes from %s:%s\n", (long) nread, host, service);
+        //Para evitar un doble salto de linea, si tocamos directamente buf, la aplicacion falla
+        if(buf[nread-1] == '\n'){
+            printf("Received message: %s", buf);
+        }else{
+            printf("Received message: %s\n", buf);
+        }
+        
+    }
+    else
+        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
 
     return 0;
 }
